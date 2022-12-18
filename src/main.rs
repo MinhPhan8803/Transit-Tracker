@@ -1,11 +1,12 @@
-use local_ip_address::local_ip;
 use iced::{Application, Command, Settings, Element};
 use iced::executor;
 use iced::theme::Theme;
-use iced::widget::{Button};
-use std::net::IpAddr;
-use maxminddb::{Reader, MaxMindDBError};
-use maxminddb::geoip2;
+use iced::widget::{Button, Text, Column};
+use std::net::{IpAddr, Ipv6Addr};
+use maxminddb::{Reader, MaxMindDBError, geoip2};
+use public_ip;
+use tokio;
+use tokio::runtime::Runtime;
 fn main() -> iced::Result {
     BusTracker::run(Settings::default())
 }
@@ -38,17 +39,24 @@ impl Application for BusTracker {
     type Message = Message;
     type Theme = Theme;
     type Flags = ();
-    fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
-        let my_ip: IpAddr = local_ip().unwrap();
+    fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
+        let rt = Runtime::new().unwrap();
+        let my_ip: IpAddr = 
+        rt.block_on(public_ip::addr())
+        .unwrap_or(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)));
+
+        println!("{}", my_ip.to_string());
         let reader: Reader<Vec<u8>> = 
         Reader::open_readfile("data/GeoLite2-City.mmdb")
         .unwrap_or_else(|msg| panic!("{}", msg.to_string()));
+
         let city_query: Result<geoip2::City, MaxMindDBError> = 
         reader.lookup(my_ip);
 
         let my_position: Position = get_position(&city_query);
         let my_start_point = get_starting_loc(&city_query)
         .join(" ");
+        println!("{}", my_start_point);
         (
             Self {
                 ip: my_ip,
@@ -63,7 +71,7 @@ impl Application for BusTracker {
     fn title(&self) -> String {
         "Bus Tracker".to_owned()
     }
-    fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
+    fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             Message::NewIp(x) => self.ip = x,
             Message::NewStart(x) => self.start_point = x,
@@ -73,16 +81,25 @@ impl Application for BusTracker {
         }
         Command::none()
     }
-    fn view(&self) -> iced::Element<Message> {
+    fn view(&self) -> Element<Message> {
 
+        let rt = Runtime::new().unwrap();
 
-        let new_ip: IpAddr = local_ip().unwrap();
-        Button::new("Location changed")
-        .on_press(Message::NewIp(new_ip))
+        let new_ip: IpAddr = 
+        rt.block_on(public_ip::addr())
+        .unwrap_or(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)));
+
+        let cur_loc_button = Button::new("Update current location")
+        .on_press(Message::NewIp(new_ip));
+
+        let cur_loc_display = Text::new(&self.start_point);
+        Column::new()
+        .push(cur_loc_button)
+        .push(cur_loc_display)
         .into()
     }
     fn theme(&self) -> Self::Theme {
-        Theme::Dark
+        Theme::Light
     }
 }
 
@@ -143,9 +160,4 @@ fn get_starting_loc<'a>(city_query: &'a Result<geoip2::City, MaxMindDBError>) ->
         Err(_) => (),
     };
     loc
-}
-
-fn ip_display<'a>() -> Element<'a, Message> {
-    Button::new("Location changed")
-    .into()
 }
