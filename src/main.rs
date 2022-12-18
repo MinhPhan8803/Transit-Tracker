@@ -55,7 +55,7 @@ impl Application for BusTracker {
 
         let my_position: Position = get_position(&city_query);
         let my_start_point = get_starting_loc(&city_query)
-        .join(" ");
+        .join(", ");
         println!("{}", my_start_point);
         (
             Self {
@@ -104,21 +104,16 @@ impl Application for BusTracker {
 }
 
 fn get_position(city_query: &Result<geoip2::City, MaxMindDBError>) -> Position {
-    match city_query {
-        Ok(x) => {
-            match &x.location {
-                Some(y) => Position { 
-                    latitude: y.latitude.unwrap_or_default(), 
-                    longitude: y.longitude.unwrap_or_default(), 
-                },
-                None => Position {
-                    latitude: 0.0, longitude: 0.0
-                }
-            }
-        },
-        Err(_) => Position {
-            latitude: 0.0, longitude: 0.0
+    if let Ok(x) = city_query {
+        if let Some(y) = &x.location {
+            return Position { 
+                latitude: y.latitude.unwrap_or_default(), 
+                longitude: y.longitude.unwrap_or_default(), 
+            };
         }
+    }
+    Position {
+        latitude: 0.0, longitude: 0.0
     }
 }
 
@@ -126,35 +121,28 @@ fn get_starting_loc<'a>(city_query: &'a Result<geoip2::City, MaxMindDBError>) ->
     let mut loc: Vec<&'a str> = Vec::new();
     match city_query {
         Ok(x) => {
-            match &x.city {
-                Some(y) => {
-                    if y.names.is_some() {
-                        for name in y.names
-                        .as_ref()
-                        .unwrap()
-                        .values() {
-                            loc.push(name);
-                        }
-                    }
-                },
-                None => (),
+            if let Some(y) = &x.city {
+                if let Some(names) = &y.names { 
+                    loc.push(names
+                        .values()
+                        .next()
+                        .unwrap());
+                }
             }
-        },
-        Err(_) => (),
-    };
-    match city_query {
-        Ok(x) => {
-            match &x.subdivisions {
-                Some(y) => {
-                    for subdivision in y {
-                        if subdivision.names.is_some() {
-                            for name in subdivision.names.as_ref().unwrap().values() {
-                                loc.push(name);
-                            }
-                        }
+            if let Some(y) = &x.subdivisions {
+                for subdivision in y {
+                    if let Some(names) = &subdivision.names {
+                        loc.push(names
+                            .values()
+                            .next()
+                            .unwrap());
                     }
-                },
-                None => (),
+                }
+            }
+            if let Some(y) = &x.postal {
+                if let Some(code) = y.code {
+                    loc.push(code);
+                }
             }
         },
         Err(_) => (),
