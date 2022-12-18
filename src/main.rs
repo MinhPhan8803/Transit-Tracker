@@ -1,7 +1,8 @@
 use local_ip_address::local_ip;
-use iced::{Application, Command, Settings};
+use iced::{Application, Command, Settings, Element};
 use iced::executor;
 use iced::theme::Theme;
+use iced::widget::{Button};
 use std::net::IpAddr;
 use maxminddb::{Reader, MaxMindDBError};
 use maxminddb::geoip2;
@@ -40,7 +41,7 @@ impl Application for BusTracker {
     fn new(_flags: Self::Flags) -> (Self, iced::Command<Self::Message>) {
         let my_ip: IpAddr = local_ip().unwrap();
         let reader: Reader<Vec<u8>> = 
-        Reader::open_readfile("../data/GeoLite2-City.mmdb")
+        Reader::open_readfile("data/GeoLite2-City.mmdb")
         .unwrap_or_else(|msg| panic!("{}", msg.to_string()));
         let city_query: Result<geoip2::City, MaxMindDBError> = 
         reader.lookup(my_ip);
@@ -72,8 +73,13 @@ impl Application for BusTracker {
         }
         Command::none()
     }
-    fn view(&self) -> iced::Element<'_, Self::Message, iced::Renderer<Self::Theme>> {
-        todo!()
+    fn view(&self) -> iced::Element<Message> {
+
+
+        let new_ip: IpAddr = local_ip().unwrap();
+        Button::new("Location changed")
+        .on_press(Message::NewIp(new_ip))
+        .into()
     }
     fn theme(&self) -> Self::Theme {
         Theme::Dark
@@ -106,7 +112,10 @@ fn get_starting_loc<'a>(city_query: &'a Result<geoip2::City, MaxMindDBError>) ->
             match &x.city {
                 Some(y) => {
                     if y.names.is_some() {
-                        for name in y.names.as_ref().unwrap().values() {
+                        for name in y.names
+                        .as_ref()
+                        .unwrap()
+                        .values() {
                             loc.push(name);
                         }
                     }
@@ -134,4 +143,9 @@ fn get_starting_loc<'a>(city_query: &'a Result<geoip2::City, MaxMindDBError>) ->
         Err(_) => (),
     };
     loc
+}
+
+fn ip_display<'a>() -> Element<'a, Message> {
+    Button::new("Location changed")
+    .into()
 }
