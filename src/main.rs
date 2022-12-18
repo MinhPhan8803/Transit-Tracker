@@ -17,18 +17,19 @@ struct Position {
 
 struct BusTracker {
     ip: IpAddr,
-    start_point: Vec<String>,
-    end_point: Vec<String>,
+    start_point: String,
+    destination: String,
     position: Position,
     stops: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
 enum Message {
-    CurrentIp(String),
-    StartPosition(Position),
-    Destination(String),
-    Stops(Vec<String>),
+    NewIp(IpAddr),
+    NewStart(String),
+    NewPos(Position),
+    NewDest(String),
+    NewStops(Vec<String>),
 }
 
 impl Application for BusTracker {
@@ -46,14 +47,12 @@ impl Application for BusTracker {
 
         let my_position: Position = get_position(&city_query);
         let my_start_point = get_starting_loc(&city_query)
-        .iter()
-        .map(| name | name.to_string())
-        .collect::<Vec<String>>();
+        .join(" ");
         (
             Self {
                 ip: my_ip,
                 start_point: my_start_point,
-                end_point: Vec::new(),
+                destination: " ".to_owned(),
                 position: my_position,
                 stops: Vec::new(),
             },
@@ -64,13 +63,20 @@ impl Application for BusTracker {
         "Bus Tracker".to_owned()
     }
     fn update(&mut self, message: Self::Message) -> iced::Command<Self::Message> {
-        todo!()
+        match message {
+            Message::NewIp(x) => self.ip = x,
+            Message::NewStart(x) => self.start_point = x,
+            Message::NewPos(x) => self.position = x,
+            Message::NewDest(x) => self.destination = x,
+            Message::NewStops(x) => self.stops = x,
+        }
+        Command::none()
     }
     fn view(&self) -> iced::Element<'_, Self::Message, iced::Renderer<Self::Theme>> {
         todo!()
     }
     fn theme(&self) -> Self::Theme {
-        todo!()
+        Theme::Dark
     }
 }
 
