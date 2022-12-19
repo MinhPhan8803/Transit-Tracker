@@ -2,16 +2,20 @@ use iced::{Application, Command, Settings, Element};
 use iced::executor;
 use iced::theme::Theme;
 use iced::widget::{Button, Text, Column};
+use std::fmt::Display;
 use std::net::{IpAddr, Ipv6Addr};
 use maxminddb::{Reader, MaxMindDBError, geoip2};
 use public_ip;
-use tokio;
 use tokio::runtime::Runtime;
+use tokio;
+use reqwest::Client;
+use serde::Deserialize;
+use dotenvy;
 fn main() -> iced::Result {
     BusTracker::run(Settings::default())
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 struct Position {
     latitude: f64,
     longitude: f64,
@@ -57,13 +61,14 @@ impl Application for BusTracker {
         let my_start_point = get_starting_loc(&city_query)
         .join(", ");
         println!("{}", my_start_point);
+        let my_stops = rt.block_on(get_stops(&my_position));
         (
             Self {
                 ip: my_ip,
                 start_point: my_start_point,
                 destination: " ".to_owned(),
                 position: my_position,
-                stops: Vec::new(),
+                stops: my_stops,
             },
             Command::none(),
         )
@@ -83,8 +88,7 @@ impl Application for BusTracker {
     }
     fn view(&self) -> Element<Message> {
 
-        let rt = Runtime::new().unwrap();
-
+        let rt: Runtime = Runtime::new().unwrap();
         let new_ip: IpAddr = 
         rt.block_on(public_ip::addr())
         .unwrap_or(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)));
@@ -93,10 +97,17 @@ impl Application for BusTracker {
         .on_press(Message::NewIp(new_ip));
 
         let cur_loc_display = Text::new(&self.start_point);
-        Column::new()
+        let stops_display = self.stops
+        .iter()
+        .map(|stop| Text::new(stop.as_str()))
+        .collect::<Vec<Text>>();
+        let mut col = Column::new()
         .push(cur_loc_button)
-        .push(cur_loc_display)
-        .into()
+        .push(cur_loc_display);
+        for stop_display in stops_display {
+            col = col.push(stop_display);
+        }
+        col.into()
     }
     fn theme(&self) -> Self::Theme {
         Theme::Light
@@ -112,9 +123,7 @@ fn get_position(city_query: &Result<geoip2::City, MaxMindDBError>) -> Position {
             };
         }
     }
-    Position {
-        latitude: 0.0, longitude: 0.0
-    }
+    Position::default()
 }
 
 fn get_starting_loc<'a>(city_query: &'a Result<geoip2::City, MaxMindDBError>) -> Vec<&'a str> {
@@ -148,4 +157,44 @@ fn get_starting_loc<'a>(city_query: &'a Result<geoip2::City, MaxMindDBError>) ->
         Err(_) => (),
     };
     loc
+}
+
+async fn get_stops(pos: &Position) -> Vec<String> {
+    let Ok(client) = Client::builder().build() else {
+        return Vec::new();
+    };
+    let api_key = dotenvy::var("CUMTD").unwrap();
+    let Ok(res) = 
+    client
+    .get("https://developer.cumtd.com/api/v2.2/json/getstopsbylatlon")
+    .query(&[("key", api_key.as_str()), ("lat", pos.latitude.to_string().as_str()), ("lon", pos.longitude.to_string().as_str()), ("count", "5")])
+    .send().await
+    else {
+        return Vec::new();
+    };
+    let Ok(json) = res.json::<BusStopRes>().await else {
+        return Vec::new();
+    };
+    json.stops
+    .iter()
+    .map(|stop| stop.to_string())
+    .collect()
+}
+
+#[derive(Deserialize)]
+struct BusStopRes {
+    stops: Vec<BusStop>,
+}
+
+#[derive(Deserialize)]
+struct BusStop {
+    stop_name: String,
+    code: String,
+    distance: f64,
+}
+
+impl Display for BusStop {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Name: {}, Code: {}, Distance: {}", self.stop_name, self.code, self.distance)
+    }
 }

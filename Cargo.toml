@@ -7,7 +7,10 @@ edition = "2021"
 
 [dependencies]
 iced = "0.6.0"
-reqwest = "0.11.13"
+reqwest = { version = "0.11.13", features = ["json"]}
 maxminddb = "0.23.0"
 public-ip = "0.2.2"
-tokio = { version = "1", features = ["rt"] }
+tokio = { version = "1", features = ["rt", "macros"] }
+serde_json = { version = "1.0.91", features = ["raw_value"] }
+serde = "1.0.151"
+dotenvy = "0.15.6"
