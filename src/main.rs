@@ -49,7 +49,6 @@ impl Application for BusTracker {
         rt.block_on(public_ip::addr())
         .unwrap_or(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)));
 
-        println!("{}", my_ip.to_string());
         let reader: Reader<Vec<u8>> = 
         Reader::open_readfile("data/GeoLite2-City.mmdb")
         .unwrap_or_else(|msg| panic!("{}", msg.to_string()));
@@ -60,8 +59,8 @@ impl Application for BusTracker {
         let my_position: Position = get_position(&city_query);
         let my_start_point = get_starting_loc(&city_query)
         .join(", ");
-        println!("{}", my_start_point);
         let my_stops = rt.block_on(get_stops(&my_position));
+    
         (
             Self {
                 ip: my_ip,
