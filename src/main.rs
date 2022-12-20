@@ -24,18 +24,18 @@ struct Position {
 struct BusTracker {
     ip: IpAddr,
     start_point: String,
-    destination: String,
-    position: Position,
+    //destination: String,
+    //position: Position,
     stops: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
 enum Message {
     NewIp(IpAddr),
-    NewStart(String),
-    NewPos(Position),
-    NewDest(String),
-    NewStops(Vec<String>),
+    // NewStart(String),
+    // NewPos(Position),
+    // NewDest(String),
+    // NewStops(Vec<String>),
 }
 
 impl Application for BusTracker {
@@ -65,8 +65,8 @@ impl Application for BusTracker {
             Self {
                 ip: my_ip,
                 start_point: my_start_point,
-                destination: " ".to_owned(),
-                position: my_position,
+                //destination: " ".to_owned(),
+                //position: my_position,
                 stops: my_stops,
             },
             Command::none(),
@@ -78,10 +78,10 @@ impl Application for BusTracker {
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             Message::NewIp(x) => self.ip = x,
-            Message::NewStart(x) => self.start_point = x,
-            Message::NewPos(x) => self.position = x,
-            Message::NewDest(x) => self.destination = x,
-            Message::NewStops(x) => self.stops = x,
+            //Message::NewStart(x) => self.start_point = x,
+            //Message::NewPos(x) => self.position = x,
+            //Message::NewDest(x) => self.destination = x,
+            //Message::NewStops(x) => self.stops = x,
         }
         Command::none()
     }
